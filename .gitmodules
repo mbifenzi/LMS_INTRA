@@ -1,6 +1,6 @@
-[submodule "external/GLOBAL-AUTH"]
-	path = external/GLOBAL-AUTH
+[submodule "GLOBAL-AUTH"]
+	path = GLOBAL-AUTH
 	url = https://github.com/um6p-vanguard/GLOBAL-AUTH
-[submodule "external/LMS_FRONT"]
-	path = external/LMS_FRONT
+[submodule "LMS_FRONT"]
+	path = LMS_FRONT
 	url = https://github.com/mbifenzi/LMS_FRONT
