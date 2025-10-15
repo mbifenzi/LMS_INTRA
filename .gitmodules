@@ -4,3 +4,6 @@
 [submodule "LMS_FRONT"]
 	path = LMS_FRONT
 	url = https://github.com/mbifenzi/LMS_FRONT
+[submodule "LMS_BACK"]
+	path = LMS_BACK
+	url = https://github.com/mbifenzi/LMS_BACK.git
