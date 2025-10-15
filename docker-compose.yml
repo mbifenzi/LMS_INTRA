@@ -23,27 +23,9 @@ services:
       - ./LMS_FRONT/.env
     depends_on:
       - fastapi-app
-      - lms-back
     networks:
       - lms_network
 
-  lms-back:
-    build:
-      context: ./LMS_BACK
-      dockerfile: Dockerfile
-    container_name: lms-back
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./LMS_BACK:/app
-    env_file:
-      - ./LMS_BACK/.env
-    restart: unless-stopped
-    depends_on:
-      - lms-postgres
-      - fastapi-app
-    networks:
-      - lms_network
 
   fastapi-app:
     build:
