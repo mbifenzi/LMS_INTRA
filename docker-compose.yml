@@ -54,12 +54,16 @@ services:
       - "8001:80"
     volumes:
       - ./GLOBAL-AUTH/app:/code/app
-    env_file:
-      - ./GLOBAL-AUTH/.env
     restart: unless-stopped
     depends_on:
       - postgres
       - redis
+    environment:
+      - PYTHONPATH=/code
+      - DATABASE_URL=postgresql://debug:debug@postgres:5432/global_auth_db
+      - TEST_DATABASE_URL=postgresql://debug:debug@postgres:5432/global_auth_test_db
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
     # user provided command; change to uvicorn or a start script if needed
     command: ["fastapi", "dev", "app/main.py", "--host", "0.0.0.0", "--port", "80"]
     networks:
