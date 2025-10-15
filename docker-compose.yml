@@ -4,6 +4,7 @@ volumes:
   asterion_local_postgres_data: {}
   asterion_local_postgres_data_backups: {}
   asterion_local_redis_data: {}
+  lms_postgres_data: {}
 
 services:
 
@@ -16,11 +17,30 @@ services:
       - "3000:3000"
     volumes:
       - ./LMS_FRONT:/app
-    environment:
-      - NODE_ENV=development
-      - PORT=3000
-      - HOSTNAME=0.0.0.0
+      - /app/node_modules
+      - /app/.next
+    env_file:
+      - ./LMS_FRONT/.env
     depends_on:
+      - fastapi-app
+      - lms-back
+    networks:
+      - sase_network
+
+  lms-back:
+    build:
+      context: ./LMS_BACK
+      dockerfile: Dockerfile
+    container_name: lms-back
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./LMS_BACK:/app
+    env_file:
+      - ./LMS_BACK/.env
+    restart: unless-stopped
+    depends_on:
+      - lms-postgres
       - fastapi-app
     networks:
       - sase_network
@@ -34,12 +54,8 @@ services:
       - "8001:80"
     volumes:
       - ./GLOBAL-AUTH/app:/code/app
-    environment:
-      - PYTHONPATH=/code
-      - DATABASE_URL=postgresql://debug:debug@postgres:5432/global_auth_db
-      - TEST_DATABASE_URL=postgresql://debug:debug@postgres:5432/global_auth_test_db
-      - REDIS_URL=redis://redis:6379/0
-      - ENVIRONMENT=development
+    env_file:
+      - ./GLOBAL-AUTH/.env
     restart: unless-stopped
     depends_on:
       - postgres
@@ -62,6 +78,20 @@ services:
     networks:
       - sase_network
 
+  lms-postgres:
+    image: postgres:13
+    container_name: lms_postgres
+    volumes:
+      - lms_postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=debug
+      - POSTGRES_PASSWORD=debug
+      - POSTGRES_DB=lms_db
+    ports:
+      - "5433:5432"
+    networks:
+      - sase_network
+
   redis:
     image: docker.io/redis:6
     container_name: asterion_local_redis
@@ -77,19 +107,24 @@ networks:
     driver: bridge
 
 # Notes:
-# - This compose integrates your requested services and maps them to the submodule
-#   directories present in this repository:
-#     - ./GLOBAL-AUTH (fastapi backend)
-#     - ./LMS_FRONT  (frontend)
-# - I omitted the Django/`back` build and related Celery/MinIO services because this
-#   repository doesn't contain a `back/` folder. If you want those included, add the
-#   `back/` code (and the referenced Dockerfiles) or tell me where to point them and
-#   I'll add the services back in.
-# - If your FastAPI project uses `uvicorn` (common) instead of the `fastapi` CLI,
-#   change the `command` to something like:
-#     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
-# - Create any necessary env files inside the submodules (e.g. `GLOBAL-AUTH/.env.local`)
-#   or replace the environment variables above with appropriate values.
+# - This compose integrates all services for the LMS system:
+#     - ./GLOBAL-AUTH (FastAPI authentication backend on port 8001)
+#     - ./LMS_BACK (Django LMS backend with uv on port 8000)
+#     - ./LMS_FRONT (Next.js frontend on port 3000)
+# - Two separate PostgreSQL databases:
+#     - asterion_local_postgres: for GLOBAL-AUTH (internal port 5432)
+#     - lms-postgres: for LMS_BACK (external port 5433, internal 5432)
+# - Redis: shared cache and session store (port 6379)
+# - LMS_BACK uses uv for dependency management and Gunicorn for serving
+# - Environment variables are loaded from .env files in each service directory:
+#     - ./LMS_FRONT/.env
+#     - ./LMS_BACK/.env
+#     - ./GLOBAL-AUTH/.env
 
-# Start everything:
-# docker compose up --build
+# Commands:
+# Start all services: docker compose up --build
+# Start specific service: docker compose up --build lms-back
+# View logs: docker compose logs -f lms-back
+# Stop all: docker compose down
+# Reset volumes (clean slate): docker compose down -v
+# Rebuild without cache: docker compose build --no-cache lms-back
