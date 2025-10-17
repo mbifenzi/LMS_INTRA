@@ -3,4 +3,7 @@
 	url = https://github.com/um6p-vanguard/GLOBAL-AUTH
 [submodule "LMS_FRONT"]
 	path = LMS_FRONT
-	url = https://github.com/mbifenzi/LMS_FRONT
+	url = https://github.com/um6p-vanguard/LMS_FRONT
+[submodule "Astra-learn"]
+	path = Astra-learn
+	url = https://github.com/um6p-vanguard/Astra-learn
