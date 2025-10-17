@@ -4,7 +4,6 @@ volumes:
   asterion_local_postgres_data: {}
   asterion_local_postgres_data_backups: {}
   astra_learn_redis_data: {}
-  astra_learn_front_postgres_data: {}
   astra_learn_backend_postgres_data: {}
 
 services:
@@ -65,20 +64,6 @@ services:
     networks:
       - astra_learn_network
 
-  astra-learn-front-db:
-    image: postgres:13
-    container_name: astra-learn-front-db
-    volumes:
-      - astra_learn_front_postgres_data:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_USER=debug
-      - POSTGRES_PASSWORD=debug
-      - POSTGRES_DB=lms_db
-    ports:
-      - "5433:5432"
-    networks:
-      - astra_learn_network
-
   redis:
     image: docker.io/redis:6
     container_name: asterion_local_redis
@@ -101,6 +86,7 @@ services:
     restart: unless-stopped
     depends_on:
       - astra-learn-db
+      - fastapi-app
     environment:
       - PYTHONPATH=/code
       - DJANGO_SECRET_KEY=dev-secret-change-in-production
@@ -111,7 +97,7 @@ services:
       - DB_PASSWORD=lms
       - DB_HOST=astra-learn-db
       - DB_PORT=5432
-      - JWT_ACCESS_TTL_MINUTES=60
+      - GLOBAL_AUTH_URL=http://fastapi-app:80
     command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
     networks:
       - astra_learn_network
