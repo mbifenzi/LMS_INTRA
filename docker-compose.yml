@@ -3,16 +3,17 @@ version: '3.8'
 volumes:
   asterion_local_postgres_data: {}
   asterion_local_postgres_data_backups: {}
-  asterion_local_redis_data: {}
-  lms_postgres_data: {}
+  astra_learn_redis_data: {}
+  astra_learn_front_postgres_data: {}
+  astra_learn_backend_postgres_data: {}
 
 services:
 
-  front:
+  astra-learn-front:
     build:
       context: ./LMS_FRONT
       dockerfile: ./Dockerfile
-    container_name: LMS_FRONT
+    container_name: astra-learn-front
     ports:
       - "3000:3000"
     volumes:
@@ -24,7 +25,7 @@ services:
     depends_on:
       - fastapi-app
     networks:
-      - lms_network
+      - astra_learn_network
 
 
   fastapi-app:
@@ -49,7 +50,7 @@ services:
     # user provided command; change to uvicorn or a start script if needed
     command: ["fastapi", "dev", "app/main.py", "--host", "0.0.0.0", "--port", "80"]
     networks:
-      - lms_network
+      - astra_learn_network
 
   postgres:
     image: postgres:13
@@ -62,13 +63,13 @@ services:
       - POSTGRES_PASSWORD=debug
       - POSTGRES_DB=global_auth_db
     networks:
-      - lms_network
+      - astra_learn_network
 
-  lms-postgres:
+  astra-learn-front-db:
     image: postgres:13
-    container_name: lms_postgres
+    container_name: astra-learn-front-db
     volumes:
-      - lms_postgres_data:/var/lib/postgresql/data
+      - astra_learn_front_postgres_data:/var/lib/postgresql/data
     environment:
       - POSTGRES_USER=debug
       - POSTGRES_PASSWORD=debug
@@ -76,18 +77,59 @@ services:
     ports:
       - "5433:5432"
     networks:
-      - lms_network
+      - astra_learn_network
 
   redis:
     image: docker.io/redis:6
     container_name: asterion_local_redis
     volumes:
-      - asterion_local_redis_data:/data
+      - astra_learn_redis_data:/data
     restart: unless-stopped
     command: redis-server --appendonly yes
     networks:
-      - lms_network
+      - astra_learn_network
+
+  astra-learn-back:
+    build:
+      context: ./Astra-learn
+      dockerfile: Dockerfile
+    container_name: astra-learn-back
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./Astra-learn:/code
+    restart: unless-stopped
+    depends_on:
+      - astra-learn-db
+    environment:
+      - PYTHONPATH=/code
+      - DJANGO_SECRET_KEY=dev-secret-change-in-production
+      - DEBUG=1
+      - ALLOWED_HOSTS=*
+      - DB_NAME=lms
+      - DB_USER=lms
+      - DB_PASSWORD=lms
+      - DB_HOST=astra-learn-db
+      - DB_PORT=5432
+      - JWT_ACCESS_TTL_MINUTES=60
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+    networks:
+      - astra_learn_network
+
+  astra-learn-db:
+    image: postgres:16
+    container_name: astra-learn-db
+    volumes:
+      - astra_learn_backend_postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=lms
+      - POSTGRES_USER=lms
+      - POSTGRES_PASSWORD=lms
+    ports:
+      - "5434:5432"
+    networks:
+      - astra_learn_network
 
 networks:
-  lms_network:
+  astra_learn_network:
     driver: bridge
