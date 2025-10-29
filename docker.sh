@@ -98,8 +98,15 @@ init_project() {
     docker-compose up -d
     
     print_info "Waiting for services to be ready..."
-    sleep 10
-    
+    # wait for postgres container to be ready
+    wait_for_db
+
+    # Remove any existing migration files so we start fresh, then create new migrations
+    clean_migrations_files
+
+    print_info "Creating migrations (if needed)..."
+    docker exec -it astra-learn-back python manage.py makemigrations
+
     print_info "Running migrations..."
     docker exec -it astra-learn-back python manage.py migrate
     
@@ -126,6 +133,52 @@ EOF
     echo "  - Frontend: http://localhost:3000"
     echo "  - Backend API: http://localhost:8000"
     echo "  - GLOBAL-AUTH: http://localhost:8001"
+}
+
+
+# Wait for Postgres DB to become available
+wait_for_db() {
+    print_info "Waiting for Postgres to accept connections..."
+    local retries=0
+    local max_retries=60
+    local PGUSER="${POSTGRES_USER:-lms}"
+    local PGDB="${POSTGRES_DB:-lms}"
+    until docker-compose exec -T astra-learn-db pg_isready -U "$PGUSER" -d "$PGDB" >/dev/null 2>&1; do
+        if [ "$retries" -ge "$max_retries" ]; then
+            print_error "Postgres did not become ready in time"
+            return 1
+        fi
+        retries=$((retries + 1))
+        sleep 1
+    done
+    print_success "Postgres is ready"
+}
+
+
+clean_migrations_files() {
+    APPS=(accounts courses assessments grades quiz_integration timetable common)
+    for app in "${APPS[@]}"; do
+        migrations_dir="Astra-learn/$app/migrations"
+        if [ -d "$migrations_dir" ]; then
+            print_info "Cleaning migration files for $app"
+            # remove all .py files except __init__.py
+            find "$migrations_dir" -maxdepth 1 -type f -name "*.py" ! -name "__init__.py" -exec rm -f {} + || true
+            # remove __pycache__ if present
+            rm -rf "$migrations_dir/__pycache__" || true
+            print_success "Cleaned $migrations_dir"
+        else
+            # create migrations package with __init__.py so Django can write files
+            mkdir -p "$migrations_dir"
+            cat > "$migrations_dir/__init__.py" <<'PY'
+"""
+Migration package (auto-created by docker.sh init).
+"""
+
+__all__ = []
+PY
+            print_success "Created $migrations_dir/__init__.py"
+        fi
+    done
 }
 
 # Build containers
